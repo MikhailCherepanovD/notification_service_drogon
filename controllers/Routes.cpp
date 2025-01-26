@@ -1,5 +1,7 @@
 #include "Routes.h"
-
+string boolToStr(bool value) {
+    return value == 1 ? "true" : "false";
+}
 bool Routes::checkIsCorrectJsonFieldForRoute( unordered_map<string,string>& jsonDict,shared_ptr<HttpRequest>req, shared_ptr<HttpResponse>resp,
                                               tm& dateBegin,tm& dateEnd){
     Json::Value retJsonValue;
@@ -58,6 +60,12 @@ std::string getCurrentDateAndTime() {
     return oss.str();
 }
 
+bool tryParseJson(const std::string& jsonStr, Json::Value& jsonData) {
+    Json::CharReaderBuilder readerBuilder;
+    std::istringstream s(jsonStr);
+    std::string errs;
+    return Json::parseFromStream(readerBuilder, s, &jsonData, &errs);
+}
 unordered_map<string,string> getJsonDictByJourney(shared_ptr<Json::Value> jo){
     unordered_map<string,string> jsonDict;
     jsonDict["origin"] = (*jo)["origin"].asString();
@@ -75,14 +83,20 @@ unordered_map<string,string> getJsonDictByJourney(shared_ptr<Json::Value> jo){
 Json::Value Routes::getJsonItemByRow(const HttpRequestPtr& req,const Row& row){
     Json::Value item;
     item["route_monitoring_id"] = row["route_monitoring_id"].as<int>();
+    LOG_WARN_C<<row["route_monitoring_id"].as<int>();
     item["frequency_monitoring"] = row["frequency_monitoring"].as<int>();
+    LOG_WARN_C<<row["frequency_monitoring"].as<int>();
     item["start_time_monitoring"] = row["start_time_monitoring"].as<std::string>();
+    LOG_WARN_C<<row["start_time_monitoring"].as<std::string>();
     item["finish_time_monitoring"] = row["finish_time_monitoring"].as<std::string>();
+    LOG_WARN_C<< row["finish_time_monitoring"].as<std::string>();
+    item["transfers_are_allowed"] = boolToStr(row["transfers_are_allowed"].as<bool>());
+    LOG_WARN_C<< boolToStr(row["transfers_are_allowed"].as<bool>());
     item["start_city"] = row["start_city"].as<std::string>();
+    LOG_WARN_C<< row["start_city"].as<std::string>();
     item["start_iata"] = row["start_iata"].as<std::string>();
     item["finish_city"] = row["finish_city"].as<std::string>();
     item["finish_iata"] = row["finish_iata"].as<std::string>();
-    LOG_DEBUG_C<<"City "<< item["start_city"].as<std::string>();
     return item;
 }
 bool Routes::userIsExists(shared_ptr<HttpResponse>resp,shared_ptr<HttpRequest>req, string userId){
@@ -322,4 +336,80 @@ void Routes::deleteRoute(const HttpRequestPtr &req,
         resp->setStatusCode(k500InternalServerError);
     }
     callback(resp);
+}
+
+void Routes::getCurrentDataRoute(const HttpRequestPtr &req,
+                         std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId){
+    auto resp=HttpResponse::newHttpResponse();
+    Json::Value retJsonValue;
+    if(!userIsExists(resp,req,userId)){
+        callback(resp);
+        return;
+    }
+    if(!routeIsExists(resp,req,userId,routeId)){
+        callback(resp);
+        return;
+    }
+    auto f1 = dbClient->execSqlAsyncFuture(
+            R"(SELECT get_recent_ticket_data($1,$2,$3);)", routeId,getCurrentDateAndTime(), HASH_INTERVAL_TIME_MINUTES);
+    try{
+        auto result = f1.get();
+        auto dataTicket = result[0]["get_recent_ticket_data"].as<string>();
+        if(!dataTicket.empty()){
+            if(!tryParseJson(dataTicket,retJsonValue)){
+                throw runtime_error("Could not parse json");
+            }
+            resp->setBody(Json::writeString(singletonJsonWriter, retJsonValue));
+            resp->setStatusCode(k200OK);
+            LOG_DEBUG_C<<"data correct recieved from hash";
+            resp->addHeader("data_status","received from hash");
+            callback(resp);
+            return;
+        }
+    }catch(...){
+        LOG_ERROR_C<<"Error in database";
+    }
+    auto f2 = dbClient->execSqlAsyncFuture(
+            R"(SELECT * FROM get_route($1,$2);)", userId,routeId);
+    try{
+        auto result=f2.get();
+        auto row = result[0];
+        int statusExecuting;
+        int wasteValue;
+        retJsonValue = aviasalesApiRequester.getJsonJourney(
+                       statusExecuting,
+                       row["start_iata"].as<std::string>(),
+                       row["finish_iata"].as<std::string>(),
+                       parseDate(row["start_time_monitoring"].as<std::string>(),wasteValue),
+                       parseDate(row["finish_time_monitoring"].as<std::string>(),wasteValue),
+                       boolToStr(row["transfers_are_allowed"].as<bool>()));
+        if(statusExecuting!=0){
+            throw runtime_error("Error in request API with ticket_data from DB");
+        }
+    }catch(const std::runtime_error& e){
+        LOG_ERROR_C<<e.what();
+        resp->setStatusCode(k500InternalServerError);
+        callback(resp);
+        return;
+    }catch(...){
+        LOG_ERROR_C<<"Unknown error in DB";
+        resp->setStatusCode(k500InternalServerError);
+        callback(resp);
+        return;
+    }
+    auto f3 = dbClient->execSqlAsyncFuture(
+            R"(INSERT INTO ticket_data(route_monitoring_id,time_of_checking,ticket_data)
+	                VALUES($1,$2,$3);)", routeId, getCurrentDateAndTime(), retJsonValue.toStyledString());
+    try{
+        auto result=f3.get();
+        LOG_DEBUG_C<<"Correct insert new ticket_data in DB";
+        resp->setStatusCode(k200OK);
+        resp->addHeader("data_status","received from API");
+        resp->setBody(Json::writeString(singletonJsonWriter, retJsonValue));
+    }catch (...){
+        LOG_DEBUG_C<<"Unknown error inserting to DB";
+        resp->setStatusCode(k500InternalServerError);
+    }
+    callback(resp);
+    return;
 }

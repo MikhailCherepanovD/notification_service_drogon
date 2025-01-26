@@ -15,6 +15,7 @@ class Routes : public drogon::HttpController<Routes>
     set<string> allowedTypesOfJorney={"avia"};
     set<string> allowedTypesOfFrequencyOfMonitoring={"hours","minutes"};
     string routesUrl="users/{}/routes/{}";
+    const int HASH_INTERVAL_TIME_MINUTES=30;  // потом вынести в конфиг файл
     bool checkIsCorrectJsonFieldForRoute( unordered_map<string,string>& jsonDict,shared_ptr<HttpRequest>req, shared_ptr<HttpResponse>resp,
                                                                          tm& dateBegin,tm& dateEnd);
     bool userIsExists(shared_ptr<HttpResponse>resp,shared_ptr<HttpRequest>req, string userId);
@@ -30,6 +31,7 @@ public:
         ADD_METHOD_TO(Routes::putRoute, "users/{userId}/routes/{routeId}", Put);
         ADD_METHOD_TO(Routes::getRoute, "users/{userId}/routes/{routeId}", Get);
         ADD_METHOD_TO(Routes::deleteRoute, "users/{userId}/routes/{routeId}", Delete);
+        ADD_METHOD_TO(Routes::getCurrentDataRoute, "users/{user_id}/routes/{route_id}/current", Get);
     METHOD_LIST_END
     void postRoute(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback, string &&userId);
@@ -41,5 +43,8 @@ public:
                   std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId);
     void deleteRoute(const HttpRequestPtr &req,
                   std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId);
+    void getCurrentDataRoute(const HttpRequestPtr &req,
+                     std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId);
+
 };
 

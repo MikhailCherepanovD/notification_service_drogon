@@ -1,5 +1,6 @@
 #include "controllers_utils.h"
 //help function:
+
 bool checkIsCorrectJson(const HttpRequestPtr &req, shared_ptr<HttpResponse> resp){
     if(req->getHeader("Content-Type")!="application/json"){
         resp->setStatusCode(k415UnsupportedMediaType);
