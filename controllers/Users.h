@@ -1,29 +1,25 @@
 #pragma once
 #include <drogon/HttpController.h>
 #include <fmt/core.h>
+#include "controllers_utils.h"
 using namespace std;
 using namespace drogon;
 using namespace drogon::orm;
-#define LOG_DEBUG_C LOG_DEBUG<<getInfoRequest(req)
-#define LOG_WARN_C LOG_WARN<<getInfoRequest(req)
-#define LOG_ERROR_C LOG_ERROR<<getInfoRequest(req)
-class User : public drogon::HttpController<User>
+
+class Users : public drogon::HttpController<Users>
 {
     shared_ptr<DbClient> dbClient;
     Json::StreamWriterBuilder singletonJsonWriter;
-
-    bool checkIsCorrectJson(const HttpRequestPtr &req,shared_ptr<HttpResponse> resp);
-    string getInfoRequest(const HttpRequestPtr &req);
-    void getResponseMissingRequiredFields(const HttpRequestPtr &req, shared_ptr<HttpResponse> resp);
+    string usersUrl="users/{}";
 public:
-    User():dbClient{ app().getDbClient("default") }{}
+    Users(): dbClient{app().getDbClient("default") }{}
     METHOD_LIST_BEGIN
-        METHOD_ADD(User::login, "/login", Post);
-        METHOD_ADD(User::registration, "/register", Post);
-        METHOD_ADD(User::updateWholeInfo,"/{id}",Put);
-        METHOD_ADD(User::getWholeInfo,"/{id}",Get);
-        METHOD_ADD(User::deleteUser,"/{id}",Delete);
-        METHOD_ADD(User::testPoint, "/testPoint", Post);
+        METHOD_ADD(Users::login, "/login", Post);
+        METHOD_ADD(Users::registration, "/register", Post);
+        METHOD_ADD(Users::updateWholeInfo, "/{id}", Put);
+        METHOD_ADD(Users::getWholeInfo, "/{id}", Get);
+        METHOD_ADD(Users::deleteUser, "/{id}", Delete);
+        METHOD_ADD(Users::testPoint, "/testPoint", Post);
     METHOD_LIST_END
 
     void login(const HttpRequestPtr &req,

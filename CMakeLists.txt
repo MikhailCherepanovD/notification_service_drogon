@@ -20,7 +20,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(${PROJECT_NAME} main.cc
-        controllers/User.cc)
+        controllers/Users.cc
+        controllers/Routes.cpp
+        controllers/Routes.h
+        controllers/controllers_utils.h
+        controllers/controllers_utils.cpp
+        aviasales_api/AviasalesApiRequester.h
+        aviasales_api/AviasalesApiRequester.cpp)
 
 # ##############################################################################
 # If you include the drogon source code locally in your project, use this method
