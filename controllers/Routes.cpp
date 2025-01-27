@@ -83,17 +83,11 @@ unordered_map<string,string> getJsonDictByJourney(shared_ptr<Json::Value> jo){
 Json::Value Routes::getJsonItemByRow(const HttpRequestPtr& req,const Row& row){
     Json::Value item;
     item["route_monitoring_id"] = row["route_monitoring_id"].as<int>();
-    LOG_WARN_C<<row["route_monitoring_id"].as<int>();
     item["frequency_monitoring"] = row["frequency_monitoring"].as<int>();
-    LOG_WARN_C<<row["frequency_monitoring"].as<int>();
     item["start_time_monitoring"] = row["start_time_monitoring"].as<std::string>();
-    LOG_WARN_C<<row["start_time_monitoring"].as<std::string>();
     item["finish_time_monitoring"] = row["finish_time_monitoring"].as<std::string>();
-    LOG_WARN_C<< row["finish_time_monitoring"].as<std::string>();
     item["transfers_are_allowed"] = boolToStr(row["transfers_are_allowed"].as<bool>());
-    LOG_WARN_C<< boolToStr(row["transfers_are_allowed"].as<bool>());
     item["start_city"] = row["start_city"].as<std::string>();
-    LOG_WARN_C<< row["start_city"].as<std::string>();
     item["start_iata"] = row["start_iata"].as<std::string>();
     item["finish_city"] = row["finish_city"].as<std::string>();
     item["finish_iata"] = row["finish_iata"].as<std::string>();
@@ -179,7 +173,20 @@ shared_ptr<HttpResponse> Routes::postOrPutRoute(const HttpRequestPtr &req, strin
         return resp;
     }
     future<Result> f;
+    string price = journeyInfo["price"].asString();
     if(routeIdPtr) {// Post
+
+        f = dbClient->execSqlAsyncFuture(R"(
+        SELECT * FROM insert_data_journey($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14))", userId,
+                                         jsonDict["frequency_of_monitoring"], jsonDict["begin_date_monitoring"],
+                                         jsonDict["end_date_monitoring"], jsonDict["direct"],
+                                         jsonDict["type_of_journey"],
+                                         jsonDict["origin"], pairIataCodes.first,
+                                         jsonDict["destination"], pairIataCodes.second,
+                                         getCurrentDateAndTime(),journeyInfo["price"].asString(),
+                                         journeyInfo.toStyledString(), *routeIdPtr);
+    }
+    else{ //Put
         f = dbClient->execSqlAsyncFuture(R"(
         SELECT * FROM insert_data_journey($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13))", userId,
                                          jsonDict["frequency_of_monitoring"], jsonDict["begin_date_monitoring"],
@@ -187,18 +194,8 @@ shared_ptr<HttpResponse> Routes::postOrPutRoute(const HttpRequestPtr &req, strin
                                          jsonDict["type_of_journey"],
                                          jsonDict["origin"], pairIataCodes.first,
                                          jsonDict["destination"], pairIataCodes.second,
-                                         getCurrentDateAndTime(), journeyInfo.toStyledString(),
-                                         *routeIdPtr);
-    }
-    else{ //Put
-        f = dbClient->execSqlAsyncFuture(R"(
-        SELECT * FROM insert_data_journey($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12))", userId,
-                                         jsonDict["frequency_of_monitoring"], jsonDict["begin_date_monitoring"],
-                                         jsonDict["end_date_monitoring"], jsonDict["direct"],
-                                         jsonDict["type_of_journey"],
-                                         jsonDict["origin"], pairIataCodes.first,
-                                         jsonDict["destination"], pairIataCodes.second,
-                                         getCurrentDateAndTime(), journeyInfo.toStyledString());
+                                         getCurrentDateAndTime(),journeyInfo["price"].asString(),
+                                         journeyInfo.toStyledString());
     }
 
     //auto f = dbClient->execSqlAsyncFuture(R"(SELECT * FROM users;)");
@@ -412,4 +409,75 @@ void Routes::getCurrentDataRoute(const HttpRequestPtr &req,
     }
     callback(resp);
     return;
+}
+
+
+void Routes::getCheapestDataRoute(const HttpRequestPtr &req,
+                          std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId){
+    auto resp=HttpResponse::newHttpResponse();
+    promise<HttpResponsePtr> prms;
+    future<HttpResponsePtr> ftr = prms.get_future();
+    auto callbackInner = [&](const HttpResponsePtr &resp) {
+        prms.set_value(resp);
+    };
+    this->getCurrentDataRoute(req,callbackInner,std::move(string(userId)),std::move(string(routeId)));
+    HttpResponsePtr innerResponse = ftr.get();
+    if(innerResponse->getStatusCode()!=k200OK){
+        callback(innerResponse);
+        return;
+    }
+    auto f1 =  dbClient->execSqlAsyncFuture(
+            R"(SELECT get_cheapest_ticket_data($1);)",routeId);
+    try{
+        auto result = f1.get();
+        auto dataTicket = result[0]["get_cheapest_ticket_data"].as<string>();
+        if(dataTicket.empty()){
+            throw runtime_error("Emmpty request from DB");
+        }
+        resp->setStatusCode(k200OK);
+        resp->setBody(dataTicket);
+        LOG_DEBUG_C<<"Correct receive from db";
+    }
+    catch(...){
+        resp->setStatusCode(k500InternalServerError);
+        LOG_DEBUG_C<<"Unknown error DB";
+    }
+    callback(resp);
+    return;
+}
+
+
+void Routes::getStatisticDataRoute(const HttpRequestPtr &req,
+                           std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId){
+    Json::Value retJsonValue;
+    auto resp=HttpResponse::newHttpResponse();
+    promise<HttpResponsePtr> prms;
+    future<HttpResponsePtr> ftr = prms.get_future();
+    auto callbackInner = [&](const HttpResponsePtr &resp) {
+        prms.set_value(resp);
+    };
+    this->getCurrentDataRoute(req,callbackInner,std::move(string(userId)),std::move(string(routeId)));
+    HttpResponsePtr innerResponse = ftr.get();
+    if(innerResponse->getStatusCode()!=k200OK){
+        callback(innerResponse);
+        return;
+    }
+    auto f1 =  dbClient->execSqlAsyncFuture(
+            R"(SELECT * FROM get_statistic_ticket_data($1,$2);)",routeId,getCurrentDateAndTime());
+    try{
+        auto result = f1.get();
+        for(auto& row:result){
+            Json::Value item;
+            item["time_of_checking"] = row["ret_time_of_checking"].as<std::string>();
+            item["data"] = row["ret_ticket_data"].as<std::string>();
+            retJsonValue.append(item);
+        }
+        resp->setStatusCode(k200OK);
+        resp->setBody(Json::writeString(singletonJsonWriter, retJsonValue));
+    }
+    catch(...){
+        resp->setStatusCode(k500InternalServerError);
+        LOG_DEBUG_C<<"Unknown error DB";
+    }
+    callback(resp);
 }

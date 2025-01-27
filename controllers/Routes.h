@@ -32,6 +32,8 @@ public:
         ADD_METHOD_TO(Routes::getRoute, "users/{userId}/routes/{routeId}", Get);
         ADD_METHOD_TO(Routes::deleteRoute, "users/{userId}/routes/{routeId}", Delete);
         ADD_METHOD_TO(Routes::getCurrentDataRoute, "users/{user_id}/routes/{route_id}/current", Get);
+        ADD_METHOD_TO(Routes::getCheapestDataRoute, "users/{user_id}/routes/{route_id}/cheapest", Get);
+        ADD_METHOD_TO(Routes::getStatisticDataRoute, "users/{user_id}/routes/{route_id}/statistic", Get);
     METHOD_LIST_END
     void postRoute(const HttpRequestPtr &req,
                    std::function<void(const HttpResponsePtr &)> &&callback, string &&userId);
@@ -45,6 +47,10 @@ public:
                   std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId);
     void getCurrentDataRoute(const HttpRequestPtr &req,
                      std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId);
+    void getCheapestDataRoute(const HttpRequestPtr &req,
+                             std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId);
+    void getStatisticDataRoute(const HttpRequestPtr &req,
+                              std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId);
 
 };
 

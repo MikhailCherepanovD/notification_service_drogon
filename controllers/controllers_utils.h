@@ -11,9 +11,9 @@
 using namespace std;
 using namespace drogon;
 using namespace drogon::orm;
-#define LOG_DEBUG_C LOG_DEBUG<<getInfoRequest(req)
-#define LOG_WARN_C LOG_WARN<<getInfoRequest(req)
-#define LOG_ERROR_C LOG_ERROR<<getInfoRequest(req)
+#define LOG_DEBUG_C LOG_DEBUG<<" "<<getInfoRequest(req)
+#define LOG_WARN_C LOG_WARN<<" "<<getInfoRequest(req)
+#define LOG_ERROR_C LOG_ERROR<<" "<<getInfoRequest(req)
 bool checkIsCorrectJson(const HttpRequestPtr &req,shared_ptr<HttpResponse> resp);
 string getInfoRequest(const HttpRequestPtr &req);
 void getResponseMissingRequiredFields(const HttpRequestPtr &req, shared_ptr<HttpResponse> resp);
