@@ -314,6 +314,12 @@ void Routes::getRoute(const HttpRequestPtr &req,
 void Routes::deleteRoute(const HttpRequestPtr &req,
                  std::function<void(const HttpResponsePtr &)> &&callback, string &&userId, string &&routeId){
     auto resp=HttpResponse::newHttpResponse();
+    if(userId.empty() ||routeId.empty()){
+        LOG_DEBUG_C<<fmt::format(" Empty field for routeId ar userId",routeId);
+        resp->setStatusCode(k404NotFound);
+        callback(resp);
+        return;
+    }
     if(!userIsExists(resp,req,userId)){
         callback(resp);
         return;
