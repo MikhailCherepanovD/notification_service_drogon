@@ -51,12 +51,14 @@ unordered_map<string,string> Routes::getJsonDictByJourney(shared_ptr<Json::Value
     jsonDict["origin"] = (*jo)["origin"].asString();
     jsonDict["destination"] = (*jo)["destination"].asString();
     jsonDict["type_of_journey"] = (*jo)["type_of_journey"].asString();
-    jsonDict["frequency_of_monitoring"] = (*jo)["frequency_of_monitoring"].asString();
+    jsonDict["type_frequency_of_monitoring"]= (*jo)["type_frequency_of_monitoring"].asString() == ""?
+                                              "hours":(*jo)["type_frequency_of_monitoring"].asString(); // если поле не передано - по умолчанию будет задано hours
+    jsonDict["frequency_of_monitoring"] = (*jo)["type_frequency_of_monitoring"].asString() == "hours"?
+                                            to_string(stoi((*jo)["frequency_of_monitoring"].asString()) * 60): (*jo)["frequency_of_monitoring"].asString();
     jsonDict["begin_date_monitoring"] = (*jo)["begin_date_monitoring"].asString();
     jsonDict["end_date_monitoring"] = (*jo)["end_date_monitoring"].asString();
     jsonDict["direct"] = (*jo)["direct"].asString();
-    jsonDict["type_frequency_of_monitoring"]= (*jo)["type_frequency_of_monitoring"].asString() == ""?
-                                              "hours":(*jo)["type_frequency_of_monitoring"].asString(); // если поле не передано - по умолчанию будет задано hours
+
     return jsonDict;
 }
 
