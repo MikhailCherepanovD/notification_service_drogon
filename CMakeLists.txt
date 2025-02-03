@@ -23,10 +23,13 @@ add_executable(${PROJECT_NAME} main.cc
         controllers/Users.cc
         controllers/Routes.cpp
         controllers/Routes.h
-        controllers/controllers_utils.h
-        controllers/controllers_utils.cpp
+        inner_libraries/time_and_json_utils.h
+        inner_libraries/time_and_json_utils.cpp
         aviasales_api/AviasalesApiRequester.h
-        aviasales_api/AviasalesApiRequester.cpp)
+        aviasales_api/AviasalesApiRequester.cpp
+        inner_libraries/Singleton.h
+        inner_libraries/ConfigReader.h
+        inner_libraries/Timer.h)
 
 # ##############################################################################
 # If you include the drogon source code locally in your project, use this method
@@ -40,6 +43,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE Drogon::Drogon)
 
 find_package(fmt REQUIRED)
 target_link_libraries(notification_service PRIVATE fmt::fmt)
+
+
 # ##############################################################################
 
 if (CMAKE_CXX_STANDARD LESS 17)

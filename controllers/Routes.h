@@ -1,30 +1,40 @@
 #pragma once
 #include <drogon/HttpController.h>
 #include <fmt/core.h>
-#include "controllers_utils.h"
+#include "inner_libraries/time_and_json_utils.h"
 #include "aviasales_api/AviasalesApiRequester.h"
+#include "inner_libraries/ConfigReader.h"
 using namespace std;
 using namespace drogon;
 using namespace drogon::orm;
 
 class Routes : public drogon::HttpController<Routes>
 {
+    //Fields
     shared_ptr<DbClient> dbClient;
     Json::StreamWriterBuilder singletonJsonWriter;
     AviasalesApiRequester& aviasalesApiRequester;
+    ConfigReader &configReader;
+
     set<string> allowedTypesOfJorney={"avia"};
     set<string> allowedTypesOfFrequencyOfMonitoring={"hours","minutes"};
     string routesUrl="users/{}/routes/{}";
-    const int HASH_INTERVAL_TIME_MINUTES=30;  // потом вынести в конфиг файл
+    int hash_interval_time_minutes;
+    //Help methods
     bool checkIsCorrectJsonFieldForRoute( unordered_map<string,string>& jsonDict,shared_ptr<HttpRequest>req, shared_ptr<HttpResponse>resp,
                                                                          tm& dateBegin,tm& dateEnd);
     bool userIsExists(shared_ptr<HttpResponse>resp,shared_ptr<HttpRequest>req, string userId);
     bool routeIsExists(shared_ptr<HttpResponse>resp,shared_ptr<HttpRequest>req, string userId,string routeId);
     shared_ptr<HttpResponse> postOrPutRoute(const HttpRequestPtr &req, string& userId, string*  routeIdPtr=nullptr);
     Json::Value getJsonItemByRow(const HttpRequestPtr&,const Row&);
+    unordered_map<string,string> getJsonDictByJourney(shared_ptr<Json::Value> jo);
 public:
-    Routes(): dbClient{app().getDbClient("default") }, aviasalesApiRequester{AviasalesApiRequester::getInstance()}
-    {}
+    Routes():
+    dbClient{app().getDbClient("default") },
+    aviasalesApiRequester{AviasalesApiRequester::getInstance()},
+    configReader{ConfigReader::getInstance()}{
+        hash_interval_time_minutes = (*configReader.getJsonValue())["hash_interval_time_minutes"].asInt();
+    }
     METHOD_LIST_BEGIN
         ADD_METHOD_TO(Routes::postRoute, "users/{userId}/routes", Post);
         ADD_METHOD_TO(Routes::getRoutes, "users/{userId}/routes", Get);

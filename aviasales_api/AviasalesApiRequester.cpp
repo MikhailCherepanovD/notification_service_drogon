@@ -1,11 +1,6 @@
 #include "AviasalesApiRequester.h"
 
 
-AviasalesApiRequester* AviasalesApiRequester::instance= nullptr;
-const string AviasalesApiRequester::WWW_REQUEST_HOST = "https://www.travelpayouts.com";
-const string AviasalesApiRequester::TRAVELPAYOUTS_KEY = "8438a0eb04f12dc8bcf1c1617870b104";
-const string AviasalesApiRequester::API_REQUEST_HOST ="https://api.travelpayouts.com";
-
 // status_executing = 0 - успешно, 1 - в базе данных нет городв с таким названием, 2 - ошибка выполнения запроса
 pair<string,string> AviasalesApiRequester::getPairIATACode(const string&  origin, const string&  destination, int& status_executing){
     pair<string,string> ret;
@@ -15,7 +10,7 @@ pair<string,string> AviasalesApiRequester::getPairIATACode(const string&  origin
     // в данном случае использование асинхронной схемы выполнения является избыточным, попробовал это здесь в рамках изучения.
     promise<void> prms;
     future<void> ftr = prms.get_future();
-    HttpClient::newHttpClient(WWW_REQUEST_HOST)->sendRequest(
+    HttpClient::newHttpClient(www_host)->sendRequest(
             httpRequest,  // Создаём HTTP-запрос
             [&prms,&status_executing,&ret,origin,destination](ReqResult result, const HttpResponsePtr &response) {
                 if (result == ReqResult::Ok) {
@@ -47,37 +42,7 @@ pair<string,string> AviasalesApiRequester::getPairIATACode(const string&  origin
     ftr.wait();
     return ret;
 }
-string fromDateToStr(const tm& date) {
-    ostringstream oss;
-    oss << (date.tm_year + 1900) << "-"
-        << std::setw(2) << std::setfill('0') << (date.tm_mon + 1) << "-"
-        << std::setw(2) << std::setfill('0') << date.tm_mday;
-    return oss.str();
-}
 
-vector<string> getDatesBetween(const tm& dateBegin, const tm& dateEnd) {
-    vector<string> dates;
-    tm current = dateBegin;
-    // Преобразуем даты в time_t для работы с днями
-    time_t timeBegin = mktime(const_cast<tm*>(&dateBegin));
-    time_t timeEnd = mktime(const_cast<tm*>(&dateEnd));
-    if (timeBegin == -1 || timeEnd == -1 || timeBegin > timeEnd) {
-        return dates; // Если данные некорректны или конец меньше начала, возвращаем пустой вектор
-    }
-    while (difftime(timeEnd, timeBegin) >= 0) {
-        // Добавляем текущую дату в вектор
-        dates.push_back(fromDateToStr(current));
-
-        // Увеличиваем день на 1
-        current.tm_mday++;
-        timeBegin = mktime(&current);
-    }
-    return dates;
-}
-
-string boolToStr(int value) {
-    return value == 1 ? "true" : "false";
-}
 
 // status_executing = 0 - корректное исполнение, 1 - некорректные даты, 2 -  билетов не найдено
 Json::Value AviasalesApiRequester::getJsonJourney(int& status_executing, const string&  originIata, const string&  destinationIata,
@@ -95,8 +60,8 @@ Json::Value AviasalesApiRequester::getJsonJourney(int& status_executing, const s
             (const string&  originIata, const string&  destinationIata,const string& date,const string& direct ){
         auto httpRequest = HttpRequest::newHttpRequest();
         httpRequest->setPath(fmt::format("/aviasales/v3/prices_for_dates?origin={}&destination={}&departure_at={}&direct={}&limit=1&page=1&token={}",
-                                         originIata,destinationIata,date,direct,TRAVELPAYOUTS_KEY));
-        auto pairResultResponse = HttpClient::newHttpClient(API_REQUEST_HOST)->sendRequest(httpRequest);
+                                         originIata, destinationIata, date, direct, api_key));
+        auto pairResultResponse = HttpClient::newHttpClient(api_host)->sendRequest(httpRequest);
         //httpClientAviasalesPtr->sendRequest(httpRequest);
         auto result = pairResultResponse.first;
         auto response = pairResultResponse.second;
@@ -113,7 +78,7 @@ Json::Value AviasalesApiRequester::getJsonJourney(int& status_executing, const s
             return returnedJson;
         }
 
-        string returnedLink = WWW_REQUEST_HOST+"/"+(*receivedJson)["data"][0]["link"].asString();
+        string returnedLink = www_host + "/" + (*receivedJson)["data"][0]["link"].asString();
         (*receivedJson)["data"][0]["link"]=returnedLink;
         returnedJson = make_shared<Json::Value>((*receivedJson)["data"][0]);//(*receivedJson)["data"][0];
 
@@ -128,7 +93,6 @@ Json::Value AviasalesApiRequester::getJsonJourney(int& status_executing, const s
     Json::Value returnedValue={};
     for(int i=0;i<amountDate;i++){
         auto receivedJsonValue=vecFuture[i].get();
-        LOG_DEBUG<<"in loop";
         if(receivedJsonValue){
             if((*receivedJsonValue)["price"].asInt()<minPrice){
                 minPrice = (*receivedJsonValue)["price"].asInt();

@@ -1,7 +1,5 @@
 #include "Routes.h"
-string boolToStr(bool value) {
-    return value == 1 ? "true" : "false";
-}
+//Help methods
 bool Routes::checkIsCorrectJsonFieldForRoute( unordered_map<string,string>& jsonDict,shared_ptr<HttpRequest>req, shared_ptr<HttpResponse>resp,
                                               tm& dateBegin,tm& dateEnd){
     Json::Value retJsonValue;
@@ -47,26 +45,8 @@ bool Routes::checkIsCorrectJsonFieldForRoute( unordered_map<string,string>& json
     return true;
 }
 
-std::string getCurrentDateAndTime() {
-    auto now = std::chrono::system_clock::now();
-    std::time_t now_time = std::chrono::system_clock::to_time_t(now);
 
-    // Преобразуем в структуру tm
-    std::tm local_tm = *std::localtime(&now_time);
-
-    // Форматируем время в строку
-    std::ostringstream oss;
-    oss << std::put_time(&local_tm, "%Y-%m-%d %H:%M:%S");
-    return oss.str();
-}
-
-bool tryParseJson(const std::string& jsonStr, Json::Value& jsonData) {
-    Json::CharReaderBuilder readerBuilder;
-    std::istringstream s(jsonStr);
-    std::string errs;
-    return Json::parseFromStream(readerBuilder, s, &jsonData, &errs);
-}
-unordered_map<string,string> getJsonDictByJourney(shared_ptr<Json::Value> jo){
+unordered_map<string,string> Routes::getJsonDictByJourney(shared_ptr<Json::Value> jo){
     unordered_map<string,string> jsonDict;
     jsonDict["origin"] = (*jo)["origin"].asString();
     jsonDict["destination"] = (*jo)["destination"].asString();
@@ -240,7 +220,7 @@ shared_ptr<HttpResponse> Routes::postOrPutRoute(const HttpRequestPtr &req, strin
 }
 
 
-
+//handlers
 void Routes::postRoute(const HttpRequestPtr &req,
                        std::function<void(const HttpResponsePtr &)> &&callback, string &&userId){
     auto resp = postOrPutRoute(req,userId);
@@ -354,7 +334,7 @@ void Routes::getCurrentDataRoute(const HttpRequestPtr &req,
         return;
     }
     auto f1 = dbClient->execSqlAsyncFuture(
-            R"(SELECT get_recent_ticket_data($1,$2,$3);)", routeId,getCurrentDateAndTime(), HASH_INTERVAL_TIME_MINUTES);
+            R"(SELECT get_recent_ticket_data($1,$2,$3);)", routeId, getCurrentDateAndTime(), hash_interval_time_minutes);
     try{
         auto result = f1.get();
         auto dataTicket = result[0]["get_recent_ticket_data"].as<string>();
