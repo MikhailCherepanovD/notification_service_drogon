@@ -12,7 +12,8 @@ RUN apt-get update -yqq \
     && apt-get install -yqq --no-install-recommends software-properties-common \
     sudo curl wget cmake make pkg-config locales git gcc-11 g++-11 \
     openssl libssl-dev libjsoncpp-dev uuid-dev zlib1g-dev libc-ares-dev\
-    postgresql-server-dev-all libmariadb-dev libsqlite3-dev libhiredis-dev libfmt-dev\
+    postgresql-server-dev-all libmariadb-dev libsqlite3-dev libhiredis-dev\
+    libfmt-dev\
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8
 
